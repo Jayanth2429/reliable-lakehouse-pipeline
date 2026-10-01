@@ -10,12 +10,17 @@ from .keys import content_hash, deterministic_record_id
 
 BUSINESS_FIELDS = {
     "source_system",
-    "patient_id",
-    "referral_type",
-    "referral_date",
-    "priority",
-    "status",
-    "facility_region",
+    "facility_id",
+    "facility_name",
+    "address",
+    "citytown",
+    "state",
+    "zip_code",
+    "countyparish",
+    "hospital_type",
+    "hospital_ownership",
+    "emergency_services",
+    "hospital_overall_rating",
 }
 
 HASH_IGNORED_FIELDS = {
@@ -25,6 +30,7 @@ HASH_IGNORED_FIELDS = {
     "pipeline_run_id",
     "last_modified_at",
     "source_updated_at",
+    "snapshot_date",
 }
 
 
@@ -41,7 +47,6 @@ def _parse_ts(value: str) -> datetime:
 
 
 def prepare_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Add a deterministic business key and stable content hash."""
     prepared = dict(record)
     missing = BUSINESS_FIELDS - prepared.keys()
     if missing:
@@ -49,16 +54,13 @@ def prepare_record(record: dict[str, Any]) -> dict[str, Any]:
 
     prepared["record_id"] = deterministic_record_id(
         source_system=prepared["source_system"],
-        patient_id=prepared["patient_id"],
-        referral_type=prepared["referral_type"],
-        referral_date=prepared["referral_date"],
+        facility_id=prepared["facility_id"],
     )
     prepared["row_hash"] = content_hash(prepared, ignored_fields=HASH_IGNORED_FIELDS)
     return prepared
 
 
 def dedupe_source(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    """Keep the latest source record for each deterministic key within a batch."""
     latest: dict[str, dict[str, Any]] = {}
     duplicates = 0
 
@@ -84,10 +86,7 @@ def merge_batch(
     pipeline_run_id: str,
     processed_at: str | None = None,
 ) -> MergeStats:
-    """Apply insert/update/no-op semantics to a mutable target mapping.
-
-    Re-running the same source batch is idempotent: unchanged rows are not rewritten.
-    """
+    """Apply insert/update/no-op semantics to a mutable target mapping."""
     processed_at = processed_at or datetime.now(timezone.utc).isoformat()
     deduped, duplicate_count = dedupe_source(source_records)
 

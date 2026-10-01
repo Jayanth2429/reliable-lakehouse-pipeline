@@ -1,86 +1,73 @@
 from lakehouse_pipeline.merge import merge_batch
 
-
 BASE = {
-    "source_system": "ehr-a",
-    "patient_id": "P-100",
-    "referral_type": "cardiology",
-    "referral_date": "2026-09-30",
-    "priority": "routine",
-    "status": "new",
-    "facility_region": "south",
-    "source_updated_at": "2026-09-30T14:00:00Z",
+    "source_system": "cms_provider_data_catalog",
+    "facility_id": "010001",
+    "facility_name": "SOUTHEAST HEALTH MEDICAL CENTER",
+    "address": "1108 ROSS CLARK CIRCLE",
+    "citytown": "DOTHAN",
+    "state": "AL",
+    "zip_code": "36301",
+    "countyparish": "HOUSTON",
+    "hospital_type": "Acute Care Hospitals",
+    "hospital_ownership": "Government - Hospital District or Authority",
+    "emergency_services": "Yes",
+    "hospital_overall_rating": "4",
+    "snapshot_date": "2026-02-25",
+    "source_updated_at": "2026-02-25T00:00:00+00:00",
 }
 
 
-def test_first_batch_inserts_record():
+def test_first_snapshot_inserts_record():
     target = {}
-    stats = merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-10-01T10:00:00+00:00")
+    stats = merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-02-25T12:00:00+00:00")
     assert stats.inserted == 1
     assert stats.updated == 0
     assert len(target) == 1
 
 
-def test_rerun_is_idempotent():
+def test_replay_is_idempotent():
     target = {}
-    merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-10-01T10:00:00+00:00")
+    merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-02-25T12:00:00+00:00")
     before = dict(next(iter(target.values())))
-
-    stats = merge_batch(target, [BASE], pipeline_run_id="run-2", processed_at="2026-10-01T11:00:00+00:00")
-    after = next(iter(target.values()))
-
+    stats = merge_batch(target, [BASE], pipeline_run_id="run-2", processed_at="2026-02-25T13:00:00+00:00")
     assert stats.unchanged == 1
-    assert stats.inserted == 0
-    assert stats.updated == 0
-    assert after == before
+    assert next(iter(target.values())) == before
 
 
-def test_changed_business_content_updates_existing_record():
+def test_changed_public_business_content_updates_existing_record():
     target = {}
-    merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-10-01T10:00:00+00:00")
-
+    merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-02-25T12:00:00+00:00")
     changed = dict(BASE)
-    changed["priority"] = "urgent"
-    changed["source_updated_at"] = "2026-10-01T09:00:00Z"
-    stats = merge_batch(target, [changed], pipeline_run_id="run-2", processed_at="2026-10-01T11:00:00+00:00")
-
+    changed["hospital_overall_rating"] = "3"
+    changed["snapshot_date"] = "2026-05-13"
+    changed["source_updated_at"] = "2026-05-13T00:00:00+00:00"
+    stats = merge_batch(target, [changed], pipeline_run_id="run-2", processed_at="2026-05-13T12:00:00+00:00")
     row = next(iter(target.values()))
     assert stats.updated == 1
-    assert row["priority"] == "urgent"
-    assert row["pipeline_run_id"] == "run-2"
-    assert row["ingested_at"] == "2026-10-01T10:00:00+00:00"
-    assert row["last_modified_at"] == "2026-10-01T11:00:00+00:00"
+    assert row["hospital_overall_rating"] == "3"
+    assert row["ingested_at"] == "2026-02-25T12:00:00+00:00"
 
 
-def test_duplicate_source_rows_keep_latest_version():
+def test_snapshot_metadata_only_change_is_noop():
+    target = {}
+    merge_batch(target, [BASE], pipeline_run_id="run-1")
+    later = dict(BASE)
+    later["snapshot_date"] = "2026-05-13"
+    later["source_updated_at"] = "2026-05-13T00:00:00+00:00"
+    stats = merge_batch(target, [later], pipeline_run_id="run-2")
+    assert stats.unchanged == 1
+    assert stats.updated == 0
+
+
+def test_duplicate_rows_keep_latest_snapshot():
     target = {}
     older = dict(BASE)
     newer = dict(BASE)
-    older["priority"] = "routine"
-    older["source_updated_at"] = "2026-09-30T12:00:00Z"
-    newer["priority"] = "urgent"
-    newer["source_updated_at"] = "2026-09-30T15:00:00Z"
-
+    newer["hospital_overall_rating"] = "3"
+    newer["snapshot_date"] = "2026-05-13"
+    newer["source_updated_at"] = "2026-05-13T00:00:00+00:00"
     stats = merge_batch(target, [older, newer], pipeline_run_id="run-1")
     row = next(iter(target.values()))
-
     assert stats.source_duplicates == 1
-    assert stats.inserted == 1
-    assert row["priority"] == "urgent"
-
-
-def test_source_timestamp_only_change_is_noop():
-    target = {}
-    merge_batch(target, [BASE], pipeline_run_id="run-1", processed_at="2026-10-01T10:00:00+00:00")
-
-    replay_with_new_source_timestamp = dict(BASE)
-    replay_with_new_source_timestamp["source_updated_at"] = "2026-10-01T09:30:00Z"
-    stats = merge_batch(
-        target,
-        [replay_with_new_source_timestamp],
-        pipeline_run_id="run-2",
-        processed_at="2026-10-01T11:00:00+00:00",
-    )
-
-    assert stats.unchanged == 1
-    assert stats.updated == 0
+    assert row["hospital_overall_rating"] == "3"

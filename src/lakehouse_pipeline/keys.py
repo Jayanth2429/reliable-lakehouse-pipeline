@@ -9,24 +9,14 @@ from typing import Any
 
 
 def normalize_text(value: Any) -> str:
-    """Normalize values before they participate in deterministic identifiers."""
     if value is None:
         return ""
     return " ".join(str(value).strip().lower().split())
 
 
-def deterministic_record_id(
-    *,
-    source_system: str,
-    patient_id: str,
-    referral_type: str,
-    referral_date: str,
-) -> str:
-    """Create a stable business key from immutable source attributes."""
-    canonical = "||".join(
-        normalize_text(value)
-        for value in (source_system, patient_id, referral_type, referral_date)
-    )
+def deterministic_record_id(*, source_system: str, facility_id: str) -> str:
+    """Create a stable key for one CMS hospital across dataset snapshots."""
+    canonical = "||".join(normalize_text(v) for v in (source_system, facility_id))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -39,7 +29,7 @@ def _canonicalize(value: Any) -> Any:
 
 
 def content_hash(payload: Mapping[str, Any], *, ignored_fields: set[str] | None = None) -> str:
-    """Hash business content while ignoring ingestion-only metadata."""
+    """Hash business content while ignoring snapshot/ingestion-only metadata."""
     ignored = ignored_fields or set()
     filtered = {key: value for key, value in payload.items() if key not in ignored}
     canonical_json = json.dumps(

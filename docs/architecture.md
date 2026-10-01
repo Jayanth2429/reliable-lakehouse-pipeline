@@ -1,26 +1,12 @@
 # Architecture
 
-```mermaid
-flowchart LR
-    A[Source batch files] --> B[Bronze landing]
-    B --> C[Schema + required field validation]
-    C --> D[Deterministic business key]
-    D --> E[Within-batch latest-record deduplication]
-    E --> F[Stable row hash]
-    F --> G{Target row exists?}
-    G -- No --> H[Insert]
-    G -- Yes, hash changed --> I[Update]
-    G -- Yes, same hash --> J[No-op]
-    H --> K[Curated Delta table]
-    I --> K
-    J --> K
-    K --> L[Audit metrics]
-```
+The project compares chronological snapshots of the public CMS Hospital General Information dataset.
 
-## Layers
+1. Download two hospital Snapshot ZIPs from the official CMS Provider Data Catalog archive.
+2. `scripts/extract_cms_snapshot.py` locates `HOSPITAL_GENERAL_INFORMATION.CSV`, normalizes headers, selects stable analytical fields, and writes JSONL.
+3. A deterministic key identifies the same facility across snapshots using `source_system + facility_id`.
+4. A SHA-256 hash represents business content while ignoring snapshot/ingestion metadata.
+5. The MERGE layer classifies each facility as insert, update, or no-op.
+6. Run-level metrics make changes observable and provide a reproducible audit trail.
 
-- **Bronze:** immutable landed source files with ingestion metadata.
-- **Silver / curated:** one current row per deterministic business key.
-- **Audit:** run-level counts for source rows, inserts, updates, unchanged rows, duplicates, and processing timestamps.
-
-The local reference implementation demonstrates the merge semantics without requiring Spark. The optional PySpark + Delta module maps the same design to a lakehouse runtime.
+The optional Spark path maps the same logic to Delta Lake MERGE semantics.

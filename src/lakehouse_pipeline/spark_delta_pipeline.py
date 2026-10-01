@@ -1,22 +1,23 @@
-"""Optional PySpark + Delta Lake implementation of the same merge design.
-
-This module is intentionally separate from the lightweight unit-test path. Run it in
-Databricks or a local Spark environment installed with the project's `spark` extra.
-"""
+"""Optional PySpark + Delta Lake implementation of CMS hospital snapshot MERGE."""
 
 from __future__ import annotations
 
 import argparse
 
-KEY_COLUMNS = ["source_system", "patient_id", "referral_type", "referral_date"]
+KEY_COLUMNS = ["source_system", "facility_id"]
 CONTENT_COLUMNS = [
     "source_system",
-    "patient_id",
-    "referral_type",
-    "referral_date",
-    "priority",
-    "status",
-    "facility_region",
+    "facility_id",
+    "facility_name",
+    "address",
+    "citytown",
+    "state",
+    "zip_code",
+    "countyparish",
+    "hospital_type",
+    "hospital_ownership",
+    "emergency_services",
+    "hospital_overall_rating",
 ]
 
 
@@ -25,21 +26,17 @@ def build_source_dataframe(spark, input_path: str):
     from pyspark.sql.window import Window
 
     source = spark.read.json(input_path)
-
     source = (
         source.withColumn(
             "record_id",
             F.sha2(
-                F.concat_ws(
-                    "||",
-                    *[F.lower(F.trim(F.col(column).cast("string"))) for column in KEY_COLUMNS],
-                ),
+                F.concat_ws("||", *[F.lower(F.trim(F.col(c).cast("string"))) for c in KEY_COLUMNS]),
                 256,
             ),
         )
         .withColumn(
             "row_hash",
-            F.sha2(F.to_json(F.struct(*[F.col(column) for column in CONTENT_COLUMNS])), 256),
+            F.sha2(F.to_json(F.struct(*[F.col(c) for c in CONTENT_COLUMNS])), 256),
         )
     )
 
@@ -85,12 +82,7 @@ def run_pipeline(input_path: str, target_path: str, audit_path: str, run_id: str
         )
 
         update_set = {column: f"source.{column}" for column in source.columns}
-        update_set.update(
-            {
-                "pipeline_run_id": "source.pipeline_run_id",
-                "last_modified_at": "source.last_modified_at",
-            }
-        )
+        update_set.update({"pipeline_run_id": "source.pipeline_run_id", "last_modified_at": "source.last_modified_at"})
 
         (
             delta_target.alias("target")

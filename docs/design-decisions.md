@@ -1,25 +1,17 @@
 # Design decisions
 
-## 1. Deterministic business keys
+## Why CMS snapshot archives?
 
-Random UUIDs are useful for uniqueness, but they do not help a rerun identify the same logical source record. This project derives a SHA-256 identifier from normalized immutable attributes instead.
+CMS publishes real public hospital data plus historical snapshots. That lets the project demonstrate actual change detection between source releases instead of manufacturing updates in a synthetic dataset.
 
-## 2. Content hashing before writes
+## Why `facility_id`?
 
-A stable hash of business fields lets the merge distinguish a real change from a replay. If the key exists and the hash is unchanged, the pipeline deliberately performs no write.
+CMS Facility ID is the natural source identifier for a hospital in this dataset. The project wraps `source_system + facility_id` in a deterministic SHA-256 key so the same pattern can generalize across sources.
 
-## 3. Deduplicate before MERGE
+## Why exclude snapshot metadata from the row hash?
 
-Multiple versions of the same record can arrive in a single batch. The pipeline keeps the latest version by `source_updated_at` before reaching the target table, avoiding ambiguous merge behavior.
+A later snapshot date should not create an update when the hospital's business attributes are unchanged. `snapshot_date`, `source_updated_at`, and pipeline metadata are therefore excluded from the business-content hash.
 
-## 4. Preserve original ingestion time
+## Why keep tiny fixtures in tests?
 
-Updates retain the original `ingested_at` timestamp and change only `last_modified_at`. This separates "when did this record first enter the platform?" from "when did its business content last change?"
-
-## 5. Audit at the pipeline-run level
-
-Operational metrics are first-class data. A production workflow should be able to answer how many rows were read, inserted, updated, unchanged, or deduplicated for every run.
-
-## 6. Lightweight tests, optional Spark runtime
-
-CI validates the reliability semantics without requiring a Spark cluster. The repository also contains a PySpark + Delta implementation for Databricks or local Spark environments.
+The production-style demo uses public CMS files. CI tests use compact deterministic fixtures because edge cases need to remain stable, fast, and intentionally reproducible.

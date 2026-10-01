@@ -1,4 +1,0 @@
-{"source_system":"ehr-a","patient_id":"P-100","referral_type":"cardiology","referral_date":"2026-09-30","priority":"urgent","status":"in_review","facility_region":"south","source_updated_at":"2026-10-01T09:00:00Z"}
-{"source_system":"ehr-a","patient_id":"P-101","referral_type":"oncology","referral_date":"2026-09-30","priority":"urgent","status":"new","facility_region":"midwest","source_updated_at":"2026-09-30T14:05:00Z"}
-{"source_system":"ehr-b","patient_id":"P-103","referral_type":"endocrine","referral_date":"2026-10-01","priority":"routine","status":"new","facility_region":"south","source_updated_at":"2026-10-01T09:05:00Z"}
-{"source_system":"ehr-b","patient_id":"P-103","referral_type":"endocrine","referral_date":"2026-10-01","priority":"urgent","status":"new","facility_region":"south","source_updated_at":"2026-10-01T09:07:00Z"}

@@ -18,3 +18,7 @@ derby.log
 # IDE
 .vscode/
 .idea/
+
+# Public source data downloaded locally
+data/raw/
+data/normalized/
