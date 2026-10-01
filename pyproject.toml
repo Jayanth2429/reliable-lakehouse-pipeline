@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reliable-lakehouse-pipeline"
+version = "0.1.0"
+description = "Production-style lakehouse pipeline demonstrating incremental ingestion, deterministic keys, idempotent merges, auditing, and restart-safe processing."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jayanth Damera" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+spark = ["pyspark>=3.5,<3.6", "delta-spark>=3.2,<4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
